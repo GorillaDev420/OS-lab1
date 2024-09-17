@@ -14,18 +14,20 @@
  * By setting up these guardrails, you're creating a more robust and maintainable solution.
  * So go ahead, sprinkle some asserts in your code; they're your friends in disguise!
  *
- * All the best!
+ * All the best!sssssssssssssss
  */
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
 
 // The <unistd.h> header is your gateway to the OS's process management facilities.
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "parse.h"
 
@@ -33,12 +35,24 @@ static void print_cmd(Command *cmd);
 static void print_pgm(Pgm *p);
 void stripwhite(char *);
 
+//Catching the ctrl+c
+void catch_signal(int sig){
+  printf("signal caught");
+  if(sig == SIGINT){
+    kill(0, SIGKILL);
+  }
+}
+
+
 int main(void)
 {
   for (;;)
   {
     char *line;
     line = readline("> ");
+    if(line == NULL){
+      exit(0);
+    }
 
     // Remove leading and trailing whitespace from the line
     stripwhite(line);
@@ -53,6 +67,7 @@ int main(void)
       {
         // Just prints cmd
         print_cmd(&cmd);
+        execute_child_process(&cmd);
       }
       else
       {
@@ -138,3 +153,35 @@ void stripwhite(char *string)
 
   string[++i] = '\0';
 }
+
+int execute_program(char** pl){
+  int ret = execvp(pl[0], pl+1);
+  if(ret == 1){
+
+  }
+  else {
+    printf("command was not executed properly %d", ret);
+    return -1;
+  }
+}
+
+int execute_child_process(Command* cmd){
+  
+  int pid, ret;
+  pid = fork();
+  ret = 0;
+  if (pid == 0) {
+
+    if(!cmd->background){
+      printf("This is not a bg proc\n");
+      signal(SIGINT, catch_signal);
+    }
+    ret = execute_program(cmd->pgm->pgmlist);
+  }
+  else {
+    wait(NULL);
+    
+  }
+  return ret;
+}
+
