@@ -250,3 +250,5 @@ reports/
 
 ## macOS ##
 .DS_Store
+lsh
+.vscode

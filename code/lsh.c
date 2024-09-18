@@ -34,6 +34,8 @@
 static void print_cmd(Command *cmd);
 static void print_pgm(Pgm *p);
 void stripwhite(char *);
+int execute_child_process(Command*);
+int execute_program(char** pl);
 
 //Catching the ctrl+c
 void catch_signal(int sig){
@@ -42,7 +44,35 @@ void catch_signal(int sig){
     kill(0, SIGKILL);
   }
 }
+int check_builtin(Command *cmd){
+  char** built_in_cmd = cmd->pgm->pgmlist;
+  if (strcmp(built_in_cmd[0], "cd")==0){
 
+    if(strcmp(built_in_cmd[1], "~")== 0){
+
+      char* username = getlogin();
+      char* home_path = "/home/";
+      int path_len = strlen(home_path) + strlen(username) + 1;
+      char* path = (char *) malloc(sizeof(char) * path_len);
+      strcpy(path, home_path);
+      strcat(path, username);
+
+      chdir(path);
+      free(path);
+    }
+    else {
+      chdir(built_in_cmd[1]);
+    }
+
+    return 1;
+  }
+  else if(strcmp(built_in_cmd[0], "exit")== 0){
+    _exit(0);
+    return 2;
+  }
+
+  return 0;
+}
 
 int main(void)
 {
@@ -67,7 +97,10 @@ int main(void)
       {
         // Just prints cmd
         print_cmd(&cmd);
-        execute_child_process(&cmd);
+        if((check_builtin(&cmd))==0){
+          execute_child_process(&cmd);
+        };
+      
       }
       else
       {
@@ -155,7 +188,7 @@ void stripwhite(char *string)
 }
 
 int execute_program(char** pl){
-  int ret = execvp(pl[0], pl+1);
+  int ret = execvp(pl[0], pl);
   if(ret == 1){
 
   }
@@ -168,20 +201,33 @@ int execute_program(char** pl){
 int execute_child_process(Command* cmd){
   
   int pid, ret;
-  pid = fork();
-  ret = 0;
-  if (pid == 0) {
+  Pgm* p_command = cmd->pgm;
+  while(p_command != NULL){
+    // int pipe_parent[2];
+    // int pipe_child[2];
 
-    if(!cmd->background){
-      printf("This is not a bg proc\n");
-      signal(SIGINT, catch_signal);
-    }
-    ret = execute_program(cmd->pgm->pgmlist);
-  }
-  else {
-    wait(NULL);
+    // int pipe_fd[2];
+    // pipe(pipe_fd);
+    pid = fork(); int pipe_fd[2];
+    if (pid == 0) {
+
+      if(!cmd->background){
+        printf("This is not a bg proc\n");
+        signal(SIGINT, catch_signal);
+      }
+        ret = execute_program(cmd->pgm->pgmlist);
+      
+
+    }  
+      
     
+    else {
+      wait(NULL);
+      // code here
+      break;
+    }
+    p_command = p_command->next;
   }
-  return ret;
+  return 0;
 }
 
