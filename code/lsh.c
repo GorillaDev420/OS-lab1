@@ -16,6 +16,13 @@
  *
  * All the best!sssssssssssssss
  */
+#define READ_END 0 
+#define WRITE_END 1
+#define CHILD_PROCESS 0
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define MAX 1000
+
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -36,6 +43,8 @@ static void print_pgm(Pgm *p);
 void stripwhite(char *);
 int execute_child_process(Command*);
 int execute_program(char** pl);
+int execute_child_process_with_pipes(Command* cmd);
+void close_all_pipes(int, int[MAX][2]);
 
 //Catching the ctrl+c
 void catch_signal(int sig){
@@ -51,7 +60,8 @@ int check_builtin(Command *cmd){
     if(strcmp(built_in_cmd[1], "~")== 0){
 
       char* username = getlogin();
-      char* home_path = "/home/";
+      //Changed the hard coded path to fit the school computer: For arch do: "/home/"
+      char* home_path = "/chalmers/users/";
       int path_len = strlen(home_path) + strlen(username) + 1;
       char* path = (char *) malloc(sizeof(char) * path_len);
       strcpy(path, home_path);
@@ -67,7 +77,8 @@ int check_builtin(Command *cmd){
     return 1;
   }
   else if(strcmp(built_in_cmd[0], "exit")== 0){
-    _exit(0);
+    // _exit(0) did not work using the school computer
+    exit(0);
     return 2;
   }
 
@@ -229,5 +240,64 @@ int execute_child_process(Command* cmd){
     p_command = p_command->next;
   }
   return 0;
+}
+
+int execute_child_process_with_pipes(Command* cmd){
+  Pgm* next_command = cmd->pgm->next;
+  int nr_pipes = 0;
+  while(next_command != NULL){
+    nr_pipes++;
+    next_command = next_command->next;
+  }
+
+
+  int pipes[nr_pipes][2];
+  int i = 0;
+  for(i; i<nr_pipes; i++){
+    if(pipe(pipes[i]) < 0){
+        return -1;
+    }
+  }
+
+  int n = 0;
+  Pgm* current_pgm = cmd->pgm;
+  while(current_pgm != NULL){
+    int pid = fork();
+    //"first item in LinkedList, only read on pipe"
+    if(pid == CHILD_PROCESS && n == 0){
+      waitpid(0,NULL,0);
+      dup2(pipes[n][READ_END],STDIN_FILENO);
+      int ret = execute_program(current_pgm->pgmlist);
+      close_all_pipes(i,pipes);
+      return ret;
+    }
+    //"Is parent and a child, has both ends of a pipe"
+    else if(pid == CHILD_PROCESS && n > 0 && current_pgm->next != NULL){
+      int read_pipe_index = n;
+      int write_pipe_index = n-1;
+      waitpid(0,NULL,0);
+      dup2(pipes[read_pipe_index][READ_END],STDIN_FILENO);
+      dup2(pipes[write_pipe_index][WRITE_END],STDOUT_FILENO);
+      int ret = execute_program(current_pgm->pgmlist);
+      close_all_pipes(i,pipes);
+    }
+    //"last item in linkedlist Only write on pipe"
+    else if(pid == CHILD_PROCESS && current_pgm->next == NULL){
+      dup2(pipes[n][WRITE_END],STDOUT_FILENO);
+      int ret = execute_program(current_pgm->pgmlist);
+      close_all_pipes(i,pipes);
+      return ret;
+    }
+    n++;
+    current_pgm = current_pgm->next;
+  }
+
+}
+
+void close_all_pipes(int i, int pipes[MAX][2]){
+  for(int n = 0; n<i; n++){
+    close(pipes[n][READ_END]);
+    close(pipes[n][WRITE_END]);  
+  }
 }
 
