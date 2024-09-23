@@ -31,11 +31,18 @@
 
 #include "parse.h"
 
+#define MAX_PROCESSES 10
+#define READ_END 0
+#define WRITE_END 1
+
+
 static void print_cmd(Command *cmd);
 static void print_pgm(Pgm *p);
 void stripwhite(char *);
 int execute_child_process(Command*);
 int execute_program(char** pl);
+int execute_child_with_pipes(Pgm* pgm);
+int recursive_forking(Pgm* pgm, int fds[][], int);
 
 //Catching the ctrl+c
 void catch_signal(int sig){
@@ -193,13 +200,10 @@ int execute_program(char** pl){
 
   }
   else {
-    printf("command was not executed properly %d", ret);
-    return -1;
+    printf("command was not");
   }
 }
-
-int execute_child_process(Command* cmd){
-  
+  execute_child_process(Command* cmd){
   int pid, ret;
   Pgm* p_command = cmd->pgm;
   while(p_command != NULL){
@@ -208,6 +212,9 @@ int execute_child_process(Command* cmd){
 
     // int pipe_fd[2];
     // pipe(pipe_fd);
+    if(p_command->next != NULL){
+      execute_child_with_pipes(&p_command);
+    }
     pid = fork(); int pipe_fd[2];
     if (pid == 0) {
 
@@ -217,7 +224,6 @@ int execute_child_process(Command* cmd){
       }
         ret = execute_program(cmd->pgm->pgmlist);
       
-
     }  
       
     
@@ -229,5 +235,64 @@ int execute_child_process(Command* cmd){
     p_command = p_command->next;
   }
   return 0;
+}
+
+execute_child_with_pipes(Pgm* pgm){
+  int fds[MAX_PROCESSES][2];
+  int i;
+  Pgm* first_program = pgm;
+  for(i = 0; pgm->next != NULL; i++){
+    if(pipe(fds[i]) == -1){
+      printf("error");
+    }
+    pgm = pgm->next;
+  }
+  int pid = fork();
+  if (pid == 0) {
+    recursive_forking(first_program, fds, 0);
+    //
+  }
+  else {
+    wait(NULL);
+  }
+
+  i = 0;
+  pgm = first_program;
+  for(i = 0; pgm->next != NULL; i++){
+    close(fds[i][0]);
+    close(fds[i][1]);
+    pgm = pgm->next;
+  }
+}
+
+int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
+  // base case
+  if(pgm->next == NULL){
+    dup2(fds[process_nr][WRITE_END], stdout);
+    close(fds[process_nr][WRITE_END]);
+    execute_program(pgm->pgmlist);
+  }
+  else{
+    int pid = fork();
+    if(pid == 0){
+      recursive_forking(pgm->next,fds,process_nr++);
+      wait(NULL);
+    }
+    else{
+      wait(NULL);
+      if(process_nr == 0){
+        dup2(fds[process_nr][READ_END],stdin);
+        close(fds[process_nr][READ_END]);
+        execute_program(pgm->pgmlist);
+      }
+      else{
+        dup2(fds[process_nr-1][WRITE_END], STDOUT_FILENO);
+        close(fds[process_nr][WRITE_END]);
+        dup2(fds[process_nr][READ_END], STDIN_FILENO);
+        close(fds[process_nr][READ_END]);
+        execute_program(pgm->pgmlist);
+      }
+    }
+  }
 }
 
