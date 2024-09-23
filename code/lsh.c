@@ -39,10 +39,12 @@
 static void print_cmd(Command *cmd);
 static void print_pgm(Pgm *p);
 void stripwhite(char *);
-int execute_child_process(Command*);
-int execute_program(char** pl);
+
+
+void execute_program(char** pl);
+int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int);
 int execute_child_with_pipes(Pgm* pgm);
-int recursive_forking(Pgm* pgm, int fds[][], int);
+int execute_command(Command* cmd);
 
 //Catching the ctrl+c
 void catch_signal(int sig){
@@ -87,8 +89,8 @@ int main(void)
   {
     char *line;
     line = readline("> ");
-    if(line == NULL){
-      exit(0);
+    if (line == NULL) {
+      _exit(0);
     }
 
     // Remove leading and trailing whitespace from the line
@@ -105,7 +107,7 @@ int main(void)
         // Just prints cmd
         print_cmd(&cmd);
         if((check_builtin(&cmd))==0){
-          execute_child_process(&cmd);
+          execute_command(&cmd);
         };
       
       }
@@ -194,105 +196,101 @@ void stripwhite(char *string)
   string[++i] = '\0';
 }
 
-int execute_program(char** pl){
-  int ret = execvp(pl[0], pl);
-  if(ret == 1){
 
-  }
-  else {
-    printf("command was not");
-  }
+void execute_program(char** pl){
+  execvp(pl[0], pl);
 }
-  execute_child_process(Command* cmd){
-  int pid, ret;
-  Pgm* p_command = cmd->pgm;
-  while(p_command != NULL){
-    // int pipe_parent[2];
-    // int pipe_child[2];
 
-    // int pipe_fd[2];
-    // pipe(pipe_fd);
-    if(p_command->next != NULL){
-      execute_child_with_pipes(&p_command);
+int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
+  // base case
+  if(pgm->next == NULL){
+    dup2(fds[process_nr - 1][WRITE_END], STDOUT_FILENO);
+    close(fds[process_nr - 1][WRITE_END]);
+    close(fds[process_nr - 1][READ_END]);
+
+    execute_program(pgm->pgmlist);
+  }
+  else{
+    pipe(fds[process_nr]);
+
+    int pid = fork();
+    // child
+    if(pid == 0){
+      recursive_forking(pgm->next, fds, process_nr + 1);
+      //wait(NULL);
     }
-    pid = fork(); int pipe_fd[2];
-    if (pid == 0) {
-
-      if(!cmd->background){
-        printf("This is not a bg proc\n");
-        signal(SIGINT, catch_signal);
-      }
-        ret = execute_program(cmd->pgm->pgmlist);
-      
-    }  
-      
-    
-    else {
+    // parent
+    else{
       wait(NULL);
-      // code here
-      break;
+      // last program to be exec
+      if(process_nr == 0){
+        dup2(fds[process_nr][READ_END],STDIN_FILENO);
+        close(fds[process_nr][WRITE_END]);
+        close(fds[process_nr][READ_END]);
+
+        execute_program(pgm->pgmlist);
+
+      }
+      // programs exec in the middle of the pipe
+      else{
+        dup2(fds[process_nr-1][WRITE_END], STDOUT_FILENO);
+        dup2(fds[process_nr][READ_END], STDIN_FILENO);
+
+        close(fds[process_nr-1][WRITE_END]);
+        close(fds[process_nr-1][READ_END]);
+        close(fds[process_nr][WRITE_END]);
+        close(fds[process_nr][READ_END]);
+
+        execute_program(pgm->pgmlist);
+      }
     }
-    p_command = p_command->next;
   }
-  return 0;
 }
 
-execute_child_with_pipes(Pgm* pgm){
+int execute_child_with_pipes(Pgm* pgm){
   int fds[MAX_PROCESSES][2];
   int i;
   Pgm* first_program = pgm;
-  for(i = 0; pgm->next != NULL; i++){
-    if(pipe(fds[i]) == -1){
-      printf("error");
-    }
-    pgm = pgm->next;
-  }
+  // for(i = 0; pgm->next != NULL; i++){
+  //   if(pipe(fds[i]) == -1){
+  //     printf("error");
+  //   }
+  //   pgm = pgm->next;
+  // }
   int pid = fork();
   if (pid == 0) {
     recursive_forking(first_program, fds, 0);
     //
   }
   else {
-    wait(NULL);
-  }
-
-  i = 0;
-  pgm = first_program;
-  for(i = 0; pgm->next != NULL; i++){
-    close(fds[i][0]);
-    close(fds[i][1]);
-    pgm = pgm->next;
+    waitpid(pid, NULL, 0);
   }
 }
 
-int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
-  // base case
-  if(pgm->next == NULL){
-    dup2(fds[process_nr][WRITE_END], stdout);
-    close(fds[process_nr][WRITE_END]);
-    execute_program(pgm->pgmlist);
+int execute_command(Command* cmd){
+  int pid, ret;
+  Pgm* p_command = cmd->pgm;
+  
+  if(p_command->next != NULL){
+    execute_child_with_pipes(p_command);
   }
-  else{
-    int pid = fork();
-    if(pid == 0){
-      recursive_forking(pgm->next,fds,process_nr++);
-      wait(NULL);
-    }
-    else{
-      wait(NULL);
-      if(process_nr == 0){
-        dup2(fds[process_nr][READ_END],stdin);
-        close(fds[process_nr][READ_END]);
-        execute_program(pgm->pgmlist);
-      }
-      else{
-        dup2(fds[process_nr-1][WRITE_END], STDOUT_FILENO);
-        close(fds[process_nr][WRITE_END]);
-        dup2(fds[process_nr][READ_END], STDIN_FILENO);
-        close(fds[process_nr][READ_END]);
-        execute_program(pgm->pgmlist);
-      }
-    }
-  }
-}
+  
+  // pid = fork(); int pipe_fd[2];
+  // if (pid == 0) {
 
+  //   if(!cmd->background){
+  //     printf("This is not a bg proc\n");
+  //     signal(SIGINT, catch_signal);
+  //   }
+  //     ret = execute_program(cmd->pgm->pgmlist);
+    
+  // }  
+    
+  
+  // else {
+  //   wait(NULL);
+  //   // code here
+  //   break;
+  // }
+  return 0;
+}
