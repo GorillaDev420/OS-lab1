@@ -14,7 +14,7 @@
  * By setting up these guardrails, you're creating a more robust and maintainable solution.
  * So go ahead, sprinkle some asserts in your code; they're your friends in disguise!
  *
- * All the best!sssssssssssssss
+ * All the best!
  */
 #include <assert.h>
 #include <ctype.h>
@@ -28,6 +28,7 @@
 // The <unistd.h> header is your gateway to the OS's process management facilities.
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #include "parse.h"
 
@@ -42,17 +43,23 @@ void stripwhite(char *);
 
 
 void execute_program(char** pl);
-int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int);
-int execute_child_with_pipes(Pgm* pgm);
+int recursive_forking(Pgm* pgm, int** fds, int);
+int execute_child_with_pipes(Command* cmd);
 int execute_command(Command* cmd);
 
-//Catching the ctrl+c
-void catch_signal(int sig){
-  printf("signal caught");
-  if(sig == SIGINT){
-    kill(0, SIGKILL);
-  }
+
+char* infile_path = NULL;
+char* outfile_path = NULL;
+int bg_flag = 0;
+int chld_pid = -1;
+
+
+
+// catching background singal
+void sigchld_handler(int sig) {
+  //wait();
 }
+
 int check_builtin(Command *cmd){
   char** built_in_cmd = cmd->pgm->pgmlist;
   if (strcmp(built_in_cmd[0], "cd")==0){
@@ -85,6 +92,9 @@ int check_builtin(Command *cmd){
 
 int main(void)
 {
+  // shell process ignores ctrl+C
+  signal(SIGCHLD, sigchld_handler);
+
   for (;;)
   {
     char *line;
@@ -196,14 +206,54 @@ void stripwhite(char *string)
   string[++i] = '\0';
 }
 
+int redirect(char* path, int redirect_fd) {
+  if (path == NULL)
+    return -1;
+  
+  int fd;
+  switch (redirect_fd)
+  {
+  case STDIN_FILENO:
+    fd = open(path, O_RDONLY);
+    if (fd > 0) {
+      dup2(fd, STDIN_FILENO);
+      close(fd);
+    }
+    break;
+  case STDOUT_FILENO:
+    fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    if (fd > 0) {
+      dup2(fd, STDOUT_FILENO);
+      close(fd);
+    }
+    break;
+  
+  default:
+    break;
+  }
+  return fd;
+}
+
+void conditional_wait(int* _start_loc, int bg) {
+  if (!bg) {
+    wait(_start_loc);
+  }
+  else {
+    signal(SIGCHLD, SIG_IGN);
+  }
+}
 
 void execute_program(char** pl){
   execvp(pl[0], pl);
 }
 
-int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
+int recursive_forking(Pgm* pgm, int** fds, int process_nr){
   // base case
   if(pgm->next == NULL){
+
+    // check input file redirection
+    redirect(infile_path, STDIN_FILENO);
+
     dup2(fds[process_nr - 1][WRITE_END], STDOUT_FILENO);
     close(fds[process_nr - 1][WRITE_END]);
     close(fds[process_nr - 1][READ_END]);
@@ -224,6 +274,9 @@ int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
       wait(NULL);
       // last program to be exec
       if(process_nr == 0){
+        // check input file redirection
+        redirect(outfile_path, STDOUT_FILENO);
+
         dup2(fds[process_nr][READ_END],STDIN_FILENO);
         close(fds[process_nr][WRITE_END]);
         close(fds[process_nr][READ_END]);
@@ -247,50 +300,82 @@ int recursive_forking(Pgm* pgm, int fds[MAX_PROCESSES][2], int process_nr){
   }
 }
 
-int execute_child_with_pipes(Pgm* pgm){
-  int fds[MAX_PROCESSES][2];
-  int i;
+int** alloc_fds(Pgm* pgm, int* count) {
+  while (pgm) {
+    (*count)++;
+    pgm = pgm->next;
+  }
+
+  int** fds = (int** ) malloc(sizeof(int *) * (*count));
+  int i = 0;
+  for (i = 0; i < (*count); i++) {
+    fds[i] = (int *) malloc(sizeof(int) * 2);
+    memset(fds[i], -1, sizeof(int) * 2);
+  }
+  return fds;
+}
+
+void free_fds(int** fds, int count) {
+  int i = 0;
+  for (i = 0; i < count; i++) {
+    free(fds[i]);
+  }
+  free(fds);
+}
+
+
+int execute_child_with_pipes(Command* cmd){
+  int pgm_count = 0;
+  Pgm* pgm = cmd->pgm;
+  int** fds = alloc_fds(pgm, &pgm_count);
   Pgm* first_program = pgm;
-  // for(i = 0; pgm->next != NULL; i++){
-  //   if(pipe(fds[i]) == -1){
-  //     printf("error");
-  //   }
-  //   pgm = pgm->next;
-  // }
+  
+  
   int pid = fork();
   if (pid == 0) {
+    // set background flag
+    bg_flag = cmd->background;
     recursive_forking(first_program, fds, 0);
-    //
+    
   }
   else {
     waitpid(pid, NULL, 0);
   }
+  free_fds(fds, pgm_count);
 }
 
 int execute_command(Command* cmd){
   int pid, ret;
   Pgm* p_command = cmd->pgm;
-  
-  if(p_command->next != NULL){
-    execute_child_with_pipes(p_command);
-  }
-  
-  // pid = fork(); int pipe_fd[2];
-  // if (pid == 0) {
 
-  //   if(!cmd->background){
-  //     printf("This is not a bg proc\n");
-  //     signal(SIGINT, catch_signal);
-  //   }
-  //     ret = execute_program(cmd->pgm->pgmlist);
-    
-  // }  
-    
+  // redirection file paths
+  infile_path = (cmd->rstdin) ? cmd->rstdin : NULL;
+  outfile_path = (cmd->rstdout) ? cmd->rstdout : NULL;
   
-  // else {
-  //   wait(NULL);
-  //   // code here
-  //   break;
-  // }
+
+
+  if(p_command->next != NULL){
+    execute_child_with_pipes(cmd);
+  }
+  else {
+    pid = fork();
+    if (pid == 0) {
+      // set background flag
+      bg_flag = cmd->background;
+      if(bg_flag){
+         signal(SIGCHLD, sigchld_handler);
+
+      }
+
+      // check redirection
+      redirect(infile_path, STDIN_FILENO);
+      redirect(outfile_path, STDOUT_FILENO);
+
+      execute_program(cmd->pgm->pgmlist);
+    }
+    else {
+      conditional_wait(NULL, cmd->background);
+    }
+  }
   return 0;
 }
