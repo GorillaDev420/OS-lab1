@@ -50,14 +50,23 @@ int execute_command(Command* cmd);
 
 char* infile_path = NULL;
 char* outfile_path = NULL;
-int bg_flag = 0;
-int chld_pid = -1;
-
+int bg_flag = 1;
+int fg_pid = -1;
+int bg_chld_pid = -1;
+int shell_pid = -1;
 
 
 // catching background singal
 void sigchld_handler(int sig) {
-  //wait();
+  if (bg_chld_pid > 0)
+    waitpid(bg_chld_pid, NULL, 0);
+}
+
+void sigint_handler(int sig) {
+  if (fg_pid > 0) {
+    kill(fg_pid, SIGKILL);
+    fg_pid = -1;
+  }
 }
 
 int check_builtin(Command *cmd){
@@ -93,7 +102,9 @@ int check_builtin(Command *cmd){
 int main(void)
 {
   // shell process ignores ctrl+C
+  shell_pid = getpid();
   signal(SIGCHLD, sigchld_handler);
+  signal(SIGINT, sigint_handler);
 
   for (;;)
   {
@@ -115,7 +126,7 @@ int main(void)
       if (parse(line, &cmd) == 1)
       {
         // Just prints cmd
-        print_cmd(&cmd);
+        // print_cmd(&cmd);
         if((check_builtin(&cmd))==0){
           execute_command(&cmd);
         };
@@ -271,6 +282,7 @@ int recursive_forking(Pgm* pgm, int** fds, int process_nr){
     }
     // parent
     else{
+      //chld_pid = pid;
       wait(NULL);
       // last program to be exec
       if(process_nr == 0){
@@ -339,7 +351,11 @@ int execute_child_with_pipes(Command* cmd){
     
   }
   else {
-    waitpid(pid, NULL, 0);
+    // chld_pid = pid;
+    if (!cmd->background) {
+      fg_pid = pid;
+      waitpid(pid, NULL, 0);
+    }
   }
   free_fds(fds, pgm_count);
 }
@@ -362,10 +378,8 @@ int execute_command(Command* cmd){
     if (pid == 0) {
       // set background flag
       bg_flag = cmd->background;
-      if(bg_flag){
-         signal(SIGCHLD, sigchld_handler);
-
-      }
+      if (bg_flag)
+        signal(SIGINT, SIG_IGN);
 
       // check redirection
       redirect(infile_path, STDIN_FILENO);
@@ -374,7 +388,13 @@ int execute_command(Command* cmd){
       execute_program(cmd->pgm->pgmlist);
     }
     else {
-      conditional_wait(NULL, cmd->background);
+      if (cmd->background)
+        bg_chld_pid = pid;
+
+      if (!cmd->background) {
+        fg_pid = pid;
+        waitpid(pid, NULL, 0);
+      }
     }
   }
   return 0;
