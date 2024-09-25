@@ -50,18 +50,17 @@ int execute_command(Command* cmd);
 
 char* infile_path = NULL;
 char* outfile_path = NULL;
-int bg_flag = 1;
 int fg_pid = -1;
-int bg_chld_pid = -1;
-int shell_pid = -1;
 
 
-// catching background singal
+// catch background singal
+// fixed: multiple background processes running
 void sigchld_handler(int sig) {
-  if (bg_chld_pid > 0)
-    waitpid(bg_chld_pid, NULL, 0);
+  // only wait the child hanged process 
+  waitpid(-1, NULL, WNOHANG);
 }
 
+// catch ctrl+C signal
 void sigint_handler(int sig) {
   if (fg_pid > 0) {
     kill(fg_pid, SIGKILL);
@@ -102,9 +101,8 @@ int check_builtin(Command *cmd){
 int main(void)
 {
   // shell process ignores ctrl+C
-  shell_pid = getpid();
   signal(SIGCHLD, sigchld_handler);
-  signal(SIGINT, sigint_handler);
+  signal(SIGINT, SIG_IGN);
 
   for (;;)
   {
@@ -278,7 +276,6 @@ int recursive_forking(Pgm* pgm, int** fds, int process_nr){
     // child
     if(pid == 0){
       recursive_forking(pgm->next, fds, process_nr + 1);
-      //wait(NULL);
     }
     // parent
     else{
@@ -345,13 +342,10 @@ int execute_child_with_pipes(Command* cmd){
   
   int pid = fork();
   if (pid == 0) {
-    // set background flag
-    bg_flag = cmd->background;
     recursive_forking(first_program, fds, 0);
     
   }
   else {
-    // chld_pid = pid;
     if (!cmd->background) {
       fg_pid = pid;
       waitpid(pid, NULL, 0);
@@ -376,10 +370,8 @@ int execute_command(Command* cmd){
   else {
     pid = fork();
     if (pid == 0) {
-      // set background flag
-      bg_flag = cmd->background;
-      if (bg_flag)
-        signal(SIGINT, SIG_IGN);
+      if (!cmd->background)
+        signal(SIGINT, SIG_DFL);
 
       // check redirection
       redirect(infile_path, STDIN_FILENO);
@@ -388,8 +380,6 @@ int execute_command(Command* cmd){
       execute_program(cmd->pgm->pgmlist);
     }
     else {
-      if (cmd->background)
-        bg_chld_pid = pid;
 
       if (!cmd->background) {
         fg_pid = pid;
