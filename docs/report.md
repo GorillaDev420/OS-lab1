@@ -19,7 +19,7 @@ Group Members: Xuanzheng Jiang, Akshara Naineni, Rasmus Sandblom
 
 ## Specifications
 
-Our group has already met all the specifications outlined in the docs/README.md and has passed all the test cases used in the Python test scripts.
+Our group has already met all the specifications outlined in the docs/README.md and has passed all the test cases used in the Python test scripts on local machines.
 
 1. **Ctrl-D Handling**: Respond to Ctrl-D (EOF) to exit.
 
@@ -379,12 +379,15 @@ When frontground processes are spawned, they can explicitly register `SIG_DFL` t
 ## Challanges
 
 **Piping:**
-With the pipes, there were a multitude of challenges regarding the specifics of how to implement it properly. One issue that occurred in the development process was how the pipes were initiated and closed. In the first iteration of the solution, we initialized the pipes with the “pipe()” command before the call to “recursive_forking()”. This proved to be troublesome however, since all the subsequent child processes created by “recursive_forking()” would inherit all the file descriptors. The consequence of this resulted in a very complicated collection of open file descriptors that proved troublesome to close properly. 
+With the pipes, there were a multitude of challenges regarding the specifics of how to implement it properly. One issue that occurred in the development process was how the pipes were initiated and closed. In the first iteration of the solution, we initialized the pipes with the `pipe()` command before the call to `recursive_forking()`. This proved to be troublesome however, since all the subsequent child processes created by `recursive_forking()` would inherit all the file descriptors. The consequence of this resulted in a very complicated collection of open file descriptors that proved troublesome to close properly. 
 
-The solution to this issue was to not create a “global” array of file descriptors but rather create and assign file descriptors locally in the children. This makes sure that file descriptors are not inherited in an uncontrolled way and keeps the “bookkeeping” on which file descriptors are open simple. The subroutine alloc_fds() allocates the memory for the array of file descriptors based on the amount of processes to be run in each piped command.
+The solution to this issue was to not create a “global” array of file descriptors but rather create and assign file descriptors locally in the children. This makes sure that file descriptors are not inherited in an uncontrolled way and keeps the “bookkeeping” on which file descriptors are open simple. The subroutine `alloc_fds()` allocates the memory for the array of file descriptors based on the amount of processes to be run in each piped command.
 
 **Built-in Commands:**
 The development process for the built in commands went quite well. We had an issue where the file paths where different for different development environment. Since the code was mostly developed on Arch Linux, we needed to change the path to match the Debian based environment where the shell is supposed to operate. 
 
+**Ctrl-C Handling:**
+Sadly, we were certain we had a clean solution to the Ctrl+C handling, but last minute it appeared that one of the associated tests failed on the remote desktops. This error was unexpected and caught right before the deadline of the project, causing it to remain unfixed in the current version of `lsh.c`. We are overall content with our solution since it has been designed and implemented in a sound way, even though the failure of the test is regretfull.  
+
 ## Feedback 
-We found that overall the lab sessions were an excellent challange and greatly improved our understanding of the underlying functionality of the operatingsystem. Reading up on how functions such as pipe(), singal() and other unix-calls actually worked and then be put to the test by implementing them felt very rewarding and a productive. Particularily, working with multiple processes was not only a challange in theoretical understanding, but also coding in general. Concerning the testing suite, we found it comprehensive and covering all major fault the program may have. In the development process, we used the tests when we thought we had a bug free program to catch additional bugs not noticed when doing manual testing. 
+We found that overall the lab sessions were an excellent challange and greatly improved our understanding of the underlying functionality of the operatingsystem. Reading up on how functions such as `pipe()`, `signal()` and other unix-calls actually worked and then be put to the test by implementing them felt very rewarding and a productive. Particularily, working with multiple processes was not only a challange in theoretical understanding, but also coding in general. Concerning the testing suite, we found it comprehensive and covering all major fault the program may have. In the development process, we used the tests when we thought we had a bug free program to catch additional bugs not noticed when doing manual testing. 
