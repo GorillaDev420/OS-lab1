@@ -41,7 +41,7 @@ Our group have already met all the specifications outlined in the docs/README.md
 
 1. **Ctrl-D Handling**: 
 
-We utilized the `readline` function return value `line` (a char* pointer) to identity if the EOF is sent when user interacting with the shell. If the `readline` return value is NULL, which means CTRL + D is passed to the shell process, we can exit the shell process.
+We utilized the `readline` function return value `line` (a char* pointer) to identity if the EOF is sent when user interacting with the shell. If the `readline` return value is NULL, which means CTRL + D is passed to the shell process. In this case we can simply exit the shell process with the _exit() function.
 
 ``` C
 line = readline("> ");
@@ -55,7 +55,7 @@ if (line == NULL) {
 
 `execvp()`:
 
-execvp() is the system call we chose to implement command execution. When execvp() is called, the process will replaces the current process image with a new process image hence any other code after execvp() will not be executed.
+execvp() is the system call we chose to implement command execution. When execvp() is called, the process will replace the current process image with a new process image. This call makes sure that any other code after execvp() will not be executed.
 
 
 ```C
@@ -99,14 +99,14 @@ Built-ins are the commands handled by shell itself, instead of executing an exte
 
 If the first string is `cd`, we should make sure there are only 2 arguments in the argument vector (the second string should be a directory path). If the first string is `exit`, there are also 2 args allowed (the second string should be a return code).   
 
-`exit` is an expilict way to exit the shell CLI (just like CTRL-D). We use function `strcmp()` to identify the exit command.
+`exit` is an expilict way to exit the shell CLI (just like CTRL-D). We use function `strcmp()` to identify that the string is indeed the  exit command.
 ``` C
 else if(strcmp(built_in_cmd[0], "exit")== 0){
     _exit(exit_code);
 }
 ```
 
-`chdir()` is used to change the current directory of the shell process, we need to take care of exceptions `~` and `cd NULL` (no path specify), which mean directing to the user's home directory (chdir() can't handle these). Under such circumstances, `strcat()` should be used to concatenate `/home` and current username. `getlogin()` for getting username. 
+`chdir()` is used to change the current directory of the shell process, we need to take care of exceptions `~` and `cd NULL` (no path specified), which mean directing to the user's home directory (chdir() can't handle these). Under such circumstances, `strcat()` should be used to concatenate the home folder and current username. `getlogin()` is used for getting the username of the current user. 
 
 ``` C
 if (strcmp(built_in_cmd[0], "cd")==0){
@@ -132,7 +132,7 @@ if (strcmp(built_in_cmd[0], "cd")==0){
 
 4. **Piping:**
 
-Piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a 2D int array `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined to automate the fd array allocation and disposition.
+Piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a two dimensional array of integers `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined in order to automate the fds array allocation and disposition.
 
 ``` C
 int** alloc_fds(Pgm* pgm, int* count) {
@@ -160,7 +160,7 @@ void free_fds(int** fds, int count) {
 
 ```
 
-Given the program linked list is arranged in a reverse order, we use the idea of recursive function to implement multiple pipes mechanism. 
+Given the program linked list is arranged in a reverse order, a recursive method of execution was chosen. One of the reasons for this was to improve the readability of the code, but also beacuse of the nature of the data structure, it seemed like the simplest choice. The pipe function are able to arbitrarily execute any number of piped programs, with the proper syntax described below: 
 
 ```
 pgm N ... | pgm N-1 ... | ... | pgm 1 ...
