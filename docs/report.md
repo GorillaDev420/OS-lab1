@@ -386,8 +386,5 @@ The solution to this issue was to not create a “global” array of file descri
 **Built-in Commands:**
 The development process for the built in commands went quite well. We had an issue where the file paths where different for different development environment. Since the code was mostly developed on Arch Linux, we needed to change the path to match the Debian based environment where the shell is supposed to operate. 
 
-**Singals:**
-
-
 ## Feedback 
 We found that overall the lab sessions were an excellent challange and greatly improved our understanding of the underlying functionality of the operatingsystem. Reading up on how functions such as pipe(), singal() and other unix-calls actually worked and then be put to the test by implementing them felt very rewarding and a productive. Particularily, working with multiple processes was not only a challange in theoretical understanding, but also coding in general. Concerning the testing suite, we found it comprehensive and covering all major fault the program may have. In the development process, we used the tests when we thought we had a bug free program to catch additional bugs not noticed when doing manual testing. 
