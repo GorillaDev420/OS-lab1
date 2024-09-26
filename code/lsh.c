@@ -75,7 +75,7 @@ int check_builtin(Command *cmd){
     if(strcmp(built_in_cmd[1], "~")== 0){
 
       char* username = getlogin();
-      char* home_path = "/home/";
+      char* home_path = "/chalmers/users/";
       int path_len = strlen(home_path) + strlen(username) + 1;
       char* path = (char *) malloc(sizeof(char) * path_len);
       strcpy(path, home_path);
