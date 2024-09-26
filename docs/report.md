@@ -170,7 +170,7 @@ For a multiple pipes command, the shell process firstly spawn a child process fo
 
 - base case (pgm N): The first program to be executed, which is at the top of recursive function stack. Only the WRITE_END of pipe[N-1] should be duplicated.
 - middle case (pgm i, i = 2, 3, ..., N-1): These processes need to read from the previous process's output(READ_END of pipe[i]) and write to the next process's input(WRITE_END of pipe[i - 1]).
-- last case (pgm 1): last program to be executed, nly read from the READ_END of pipe[1].
+- last case (pgm 1): last program to be executed, only read from the READ_END of pipe[1].
 
 ``` C
 int recursive_forking(Pgm* pgm, int** fds, int process_nr){
@@ -227,6 +227,13 @@ int recursive_forking(Pgm* pgm, int** fds, int process_nr){
 }
 
 ```
+Worth noting is that since the pipe function is a much more complicated endevour than the regular execution. The choice was made to have it as a special case with it's own subroutine `execute_child_with_pipes`.
+
+```C
+  if(p_command->next != NULL){
+    execute_child_with_pipes(cmd);
+  }
+```
 
 5. **I/O Redirection:**
 
@@ -236,7 +243,7 @@ Redirection feature is also implemented using `dup2()` system calling while no p
 - Last process (pgm 1): check if output redirection needed
 
 
-Here is how we define a rediction function:
+Here is how we define a redirection function:
 ``` C
 
 int redirect(char* path, int redirect_fd) {
