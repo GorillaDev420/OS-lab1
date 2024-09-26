@@ -338,9 +338,14 @@ signal(SIGCHLD, sigchld_handler);
 
 
 
-## Chanllanges
+## Challanges
 
 **Piping:**
 With the pipes, there were a multitude of challenges regarding the specifics of how to implement it properly. One issue that occurred in the development process was how the pipes were initiated and closed. In the first iteration of the solution, we initialized the pipes with the “pipe()” command before the call to “recursive_forking()”. This proved to be troublesome however, since all the subsequent child processes created by “recursive_forking()” would inherit all the file descriptors. The consequence of this resulted in a very complicated collection of open file descriptors that proved troublesome to close properly. 
 
 The solution to this issue was to not create a “global” array of file descriptors but rather create and assign file descriptors locally in the children. This makes sure that file descriptors are not inherited in an uncontrolled way and keeps the “bookkeeping” on which file descriptors are open simple. The subroutine alloc_fds() allocates the memory for the array of file descriptors based on the amount of processes to be run in each piped command.
+
+**Built-in Commands:**
+The development process for the built in commands went quite well. We had an issue where the file paths where different for different development environment. Since the code was mostly developed on Arch Linux, we needed to change the path to match the Debian based environment where the shell is supposed to operate. 
+
+
