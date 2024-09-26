@@ -68,7 +68,7 @@ int execvp(const char *file, char *const argv[]);
 - file: This is the name of the program to execute. If the file doesn't contain a slash (/), the system searches for it in the directories specified by the PATH environment variable.
 - argv[]: This is an array of arguments passed to the program. The first argument (argv[0]) is typically the name of the program itself.
 
-For non-builtin commands(`cd` and `exit`), they should be executed by sub-processes instead of the shell process, so fork() system call should be used to spawn a child process to take care of the process execution business. The following code shows how a single program is executed. (Simplified Version)
+For non-builtin commands(`cd` and `exit`), they should be executed by sub-processes instead of the shell process, so fork() system call should be used to spawn a child process to take care of the process execution. The following code shows how a single program is executed. (Simplified Version)
 
 ```C
 void execute_program(char** pl){
@@ -132,7 +132,7 @@ if (strcmp(built_in_cmd[0], "cd")==0){
 
 4. **Piping:**
 
-The piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a two dimensional array of integers `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined in order to automate the fds array allocation and disposition.
+The piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a two dimensional array of integers `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined in order to automate the fds array allocation and disposal.
 
 ``` C
 int** alloc_fds(Pgm* pgm, int* count) {
@@ -160,13 +160,13 @@ void free_fds(int** fds, int count) {
 
 ```
 
-Given the program's linked list is arranged in a reverse order, a recursive method of execution was chosen. One of the reasons for this was to improve the readability of the code, but also because of the nature of the data structure, it seemed like the simplest choice. The pipe function are able to arbitrarily execute any number of piped programs, with the proper syntax described below: 
+Given the program's linked list is arranged in a reverse order, a recursive method of execution was chosen. One of the reasons for this was to improve the readability of the code, but also because of the nature of the data structure. The pipe function are able to arbitrarily execute any number of piped programs, with the proper syntax described below: 
 
 ```
 pgm N ... | pgm N-1 ... | ... | pgm 1 ...
 ```
 
-For a multiple pipes command, the shell process firstly spawn a child process for pgm 1, and recursively
+For a multiple pipes command, the shell process initially spawns a child process for pgm 1, and recursively check the following conditions:
 
 - base case (pgm N): The first program to be executed, which is at the top of the recursive function stack. Only the WRITE_END of pipe[N-1] should be duplicated.
 - middle case (pgm i, i = 2, 3, ..., N-1): These processes need to read from the previous process's output(READ_END of pipe[i]) and write to the next process's input(WRITE_END of pipe[i - 1]).
@@ -227,7 +227,7 @@ int recursive_forking(Pgm* pgm, int** fds, int process_nr){
 }
 
 ```
-Worth noting is that since the pipe function is a much more complicated endevour than the regular execution. The choice was made to have it as a special case with its own subroutine `execute_child_with_pipes`.
+Worth noting is that since the pipe functionality is a much more complicated endevour than the singel program execution. The choice was made to have it as a special case with its own subroutine `execute_child_with_pipes`.
 
 ```C
   if(p_command->next != NULL){
