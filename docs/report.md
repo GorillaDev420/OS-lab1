@@ -5,7 +5,7 @@ Group: Lab Group 28
 Group Members: Xuanzheng Jiang, Akshara Naineni, Rasmus Sandblom
 
 ## Meeting Timeline (Implementation order included)
-13rd Sept: Completed the warm-up quiz.
+13th Sept: Completed the warm-up quiz.
 
 17th Sept: Finished `CTRL + D handling` and ` Baisc Program Execution`.
 
@@ -19,7 +19,7 @@ Group Members: Xuanzheng Jiang, Akshara Naineni, Rasmus Sandblom
 
 ## Specifications
 
-Our group have already met all the specifications outlined in the docs/README.md and have passed all the test cases used in the python test scripts.
+Our group has already met all the specifications outlined in the docs/README.md and has passed all the test cases used in the Python test scripts.
 
 1. **Ctrl-D Handling**: Respond to Ctrl-D (EOF) to exit.
 
@@ -41,7 +41,7 @@ Our group have already met all the specifications outlined in the docs/README.md
 
 1. **Ctrl-D Handling**: 
 
-We utilized the `readline` function return value `line` (a char* pointer) to identity if the EOF is sent when user interacting with the shell. If the `readline` return value is NULL, which means CTRL + D is passed to the shell process. In this case we can simply exit the shell process with the _exit() function.
+We utilized the `readline` function return value `line` (a char* pointer) to identify if the EOF is sent when the user interacts with the shell. If the `readline` return value is NULL, which means CTRL + D is passed to the shell process. In this case, we can simply exit the shell process with the _exit() function.
 
 ``` C
 line = readline("> ");
@@ -68,7 +68,7 @@ int execvp(const char *file, char *const argv[]);
 - file: This is the name of the program to execute. If the file doesn't contain a slash (/), the system searches for it in the directories specified by the PATH environment variable.
 - argv[]: This is an array of arguments passed to the program. The first argument (argv[0]) is typically the name of the program itself.
 
-For non-builtin commands(`cd` and `exit`), they should be executed by sub-processes instead of the shell process, so fork() system call should be used to spawn a child process to take care of the process execution bussiness. The following code shows how a single program is executed. (Simplified Version)
+For non-builtin commands(`cd` and `exit`), they should be executed by sub-processes instead of the shell process, so fork() system call should be used to spawn a child process to take care of the process execution business. The following code shows how a single program is executed. (Simplified Version)
 
 ```C
 void execute_program(char** pl){
@@ -93,20 +93,20 @@ execute_command (Command* cmd) {
 
 3. **Built-ins**: 
 
-Built-ins are the commands handled by shell itself, instead of executing an external binary program. Before calling function `execute_command()`, pre-check should be made to ensure:
+Built-ins are the commands handled by shell itself, instead of executing an external binary program. Before calling function `execute_command()`, a pre-check should be made to ensure:
 - only one `pgm` in the Command linked list.
 - `pgm.pgmlist[0]` is `cd` or `exit`. 
 
 If the first string is `cd`, we should make sure there are only 2 arguments in the argument vector (the second string should be a directory path). If the first string is `exit`, there are also 2 args allowed (the second string should be a return code).   
 
-`exit` is an expilict way to exit the shell CLI (just like CTRL-D). We use function `strcmp()` to identify that the string is indeed the  exit command.
+`exit` is an explicit way to exit the shell CLI (just like CTRL-D). We use the function `strcmp()` to identify that the string is indeed the  exit command.
 ``` C
 else if(strcmp(built_in_cmd[0], "exit")== 0){
     _exit(exit_code);
 }
 ```
 
-`chdir()` is used to change the current directory of the shell process, we need to take care of exceptions `~` and `cd NULL` (no path specified), which mean directing to the user's home directory (chdir() can't handle these). Under such circumstances, `strcat()` should be used to concatenate the home folder and current username. `getlogin()` is used for getting the username of the current user. 
+`chdir()` is used to change the current directory of the shell process, we need to take care of exceptions `~` and `cd NULL` (no path specified), which means directing to the user's home directory (chdir() can't handle these). Under such circumstances, `strcat()` should be used to concatenate the home folder and current username. `getlogin()` is used for getting the username of the current user. 
 
 ``` C
 if (strcmp(built_in_cmd[0], "cd")==0){
@@ -132,7 +132,7 @@ if (strcmp(built_in_cmd[0], "cd")==0){
 
 4. **Piping:**
 
-Piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a two dimensional array of integers `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined in order to automate the fds array allocation and disposition.
+The piping feature is implemented by duplicating pipe file descriptor to STDIN and STDOUT using system call `dup2()`. We define a two dimensional array of integers `fds[pgm_count - 1][2]` to store the pipe file descriptors. Two helper functions are defined in order to automate the fds array allocation and disposition.
 
 ``` C
 int** alloc_fds(Pgm* pgm, int* count) {
@@ -160,7 +160,7 @@ void free_fds(int** fds, int count) {
 
 ```
 
-Given the program linked list is arranged in a reverse order, a recursive method of execution was chosen. One of the reasons for this was to improve the readability of the code, but also beacuse of the nature of the data structure, it seemed like the simplest choice. The pipe function are able to arbitrarily execute any number of piped programs, with the proper syntax described below: 
+Given the program's linked list is arranged in a reverse order, a recursive method of execution was chosen. One of the reasons for this was to improve the readability of the code, but also because of the nature of the data structure, it seemed like the simplest choice. The pipe function are able to arbitrarily execute any number of piped programs, with the proper syntax described below: 
 
 ```
 pgm N ... | pgm N-1 ... | ... | pgm 1 ...
@@ -168,7 +168,7 @@ pgm N ... | pgm N-1 ... | ... | pgm 1 ...
 
 For a multiple pipes command, the shell process firstly spawn a child process for pgm 1, and recursively
 
-- base case (pgm N): The first program to be executed, which is at the top of recursive function stack. Only the WRITE_END of pipe[N-1] should be duplicated.
+- base case (pgm N): The first program to be executed, which is at the top of the recursive function stack. Only the WRITE_END of pipe[N-1] should be duplicated.
 - middle case (pgm i, i = 2, 3, ..., N-1): These processes need to read from the previous process's output(READ_END of pipe[i]) and write to the next process's input(WRITE_END of pipe[i - 1]).
 - last case (pgm 1): last program to be executed, only read from the READ_END of pipe[1].
 
@@ -227,7 +227,7 @@ int recursive_forking(Pgm* pgm, int** fds, int process_nr){
 }
 
 ```
-Worth noting is that since the pipe function is a much more complicated endevour than the regular execution. The choice was made to have it as a special case with it's own subroutine `execute_child_with_pipes`.
+Worth noting is that since the pipe function is a much more complicated endevour than the regular execution. The choice was made to have it as a special case with its own subroutine `execute_child_with_pipes`.
 
 ```C
   if(p_command->next != NULL){
@@ -237,7 +237,7 @@ Worth noting is that since the pipe function is a much more complicated endevour
 
 5. **I/O Redirection:**
 
-Redirection feature is also implemented using `dup2()` system calling while no pipes needed. Only the first and last processes need to take redirection into their account.
+The redirection feature is also implemented using `dup2()` system calling while no pipes are needed. Only the first and last processes need to take redirection into their account.
 
 - First process (pgm N): check if input redirection needed
 - Last process (pgm 1): check if output redirection needed
@@ -282,7 +282,7 @@ int redirect(char* path, int redirect_fd) {
 
 ```
 
-The `redirect()` fucntion will automatically check if a process needs input/out redirection, so a process just need to call it before program execution.
+The `redirect()` function will automatically check if a process needs input/out redirection, so a process just needs to call it before program execution.
 
 ``` C
 
@@ -296,7 +296,7 @@ execute_program(cmd->pgm->pgmlist);
 
 6. **Background Execution:**
 
-Only frontground processes need to blocking-wait for its children, while background processes can run quietly without blocking the shell process.
+Only frontground processes need to blocking-wait for their children, while background processes can run quietly without blocking the shell process.
 
 The parent-child pattern shall look as follows:
 
@@ -317,23 +317,23 @@ The parent-child pattern shall look as follows:
     }
 ```
 
-However, if parents leave their children run without waiting, the chidren will become zombies when they exit. We will solve this problem in the **No Zombies** section.
+However, if parents leave their children to run without waiting, the children will become zombies when they exit. We will solve this problem in the **No Zombies** section.
 
 7. **No Zombies:**
 
-When children executions end, they will send a signal `SIGCHLD` back to their parents to notify their exit. By catching `SIGCHLD`, we can resolve the zombie issue easily.
+When children's executions end, they will send a signal `SIGCHLD` back to their parents to notify their exit. By catching `SIGCHLD`, we can resolve the zombie issue easily.
 
 ``` C
 // catch background singal
 // fixed: multiple background processes running
 void sigchld_handler(int sig) {
-  // only wait the child hanged process 
+  // only wait for the child hanged process 
   waitpid(-1, NULL, WNOHANG);
 }
 
 ```
 
-In order to handle the multiple background processes waiting, we discarded the original implementation tracking all the background children process ids  `child_pids` and blockingly wait. Instead, we prefer use `WHOHANG` to non-blockingly wait for all the dead children.
+In order to handle the multiple background processes waiting, we discarded the original implementation tracking all the background children process ids  `child_pids` and blockingly wait. Instead, we prefer to use `WHOHANG` to non-blockingly wait for all the dead children.
 
 To register a singal handler function:
 
@@ -343,7 +343,38 @@ signal(SIGCHLD, sigchld_handler);
 
 8. **Ctrl-C Handling:**
 
+Ctrl-C keyboard interrupt will send `SIGINT` signal to all the processes in the current process group, and a way to protect shell process and background processes from being killed is by registering `SIG_IGN` as the `SIGINT` handler. As for frontground processes, we can register `SIG_DFL` as their `SIGINT` handler, so that Ctrl-C interrupt can effortlessly kill all the frontground processes. 
 
+Since a child process inherits signal settings from its parent during `fork()`, shell process can be set to:
+
+```C
+signal(SIGINT, SIG_IGN);
+```
+
+When frontground processes are spawned, they can explicitly register `SIG_DFL` to their SIGINT handler. Rest of the processes(background) will automatically ignore SIGINT during their execution.
+
+```C
+    pid = fork();
+    if (pid < 0)
+      ...
+    if (pid == 0) {
+      if (!cmd->background)
+        signal(SIGINT, SIG_DFL);
+
+      // check redirection
+      redirect(infile_path, STDIN_FILENO);
+      redirect(outfile_path, STDOUT_FILENO);
+
+      execute_program(cmd->pgm->pgmlist);
+    }
+    else {
+
+      if (!cmd->background) {
+        fg_pid = pid;
+        waitpid(pid, NULL, 0);
+      }
+    }
+```
 
 ## Challanges
 
